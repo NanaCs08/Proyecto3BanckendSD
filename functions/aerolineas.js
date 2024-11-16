@@ -55,8 +55,14 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'POST') {
-      // Crear una nueva aerolínea
+      // Crear una nueva aerolínea con un id incremental
       const data = JSON.parse(event.body);
+
+      // Incrementar el id y obtener el nuevo id
+      const newId = await client.incr('last_airline_id');
+      data.id = newId; // Asignar el nuevo id a la aerolínea
+
+      // Insertar la nueva aerolínea en la lista `airlines` en Redis
       await client.rPush('airlines', JSON.stringify(data));
 
       // Enviar mensaje a RabbitMQ para operación 'add'

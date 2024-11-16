@@ -8,40 +8,45 @@ const client = redis.createClient({
 
 client.on('error', (err) => console.error('Error conectando a Redis', err));
 
-async function cargarFabricantes() {
+async function cargarAerolíneas() {
   try {
     await client.connect(); // Conectar a Redis
 
-    // Datos de ejemplo para cargar en Redis
-    const fabricantes = [
+    // Datos de ejemplo para cargar en Redis, con un campo `id` único
+    const aerolineas = [
       {
-        nombre: "Airbus",
-        pais_origen: "Francia",
-        año_fundacion: 1970,
-        modelos_fabricados: ["Airbus A320", "Airbus A330", "Airbus A380", "Airbus A350"],
-        imagen: "/Imagenes/fabricantes/fabricante_1.jpg"
+        id: 1, // ID único
+        nombre: "British Airways",
+        pais_origen: "Reino Unido",
+        flota: 277,
+        modelos_operados: ["Boeing 747", "Airbus A320", "Boeing 787 Dreamliner"],
+        imagen: "/Imagenes/aerolineas/aerolinea_6.png"
       },
       {
-        nombre: "Boeing",
-        pais_origen: "Estados Unidos",
-        año_fundacion: 1916,
-        modelos_fabricados: ["Boeing 737", "Boeing 747", "Boeing 777", "Boeing 787 Dreamliner"],
-        imagen: "/Imagenes/fabricantes/fabricante_2.jpg"
+        id: 2, // ID único
+        nombre: "Air France",
+        pais_origen: "Francia",
+        flota: 212,
+        modelos_operados: ["Airbus A380", "Boeing 777", "Airbus A320"],
+        imagen: "/Imagenes/aerolineas/aerolinea_7.png"
       }
     ];
 
-    // Insertar cada fabricante en la lista `manufacturers` en Redis
-    for (const fabricante of fabricantes) {
-      await client.rPush('manufacturers', JSON.stringify(fabricante));
+    // Eliminar los datos antiguos antes de insertar los nuevos (opcional)
+    await client.del('airlines');
+
+    // Insertar cada aerolínea en la lista `airlines` en Redis
+    for (const aerolinea of aerolineas) {
+      await client.rPush('airlines', JSON.stringify(aerolinea));
     }
 
-    console.log('Datos de fabricantes cargados correctamente en Redis Cloud');
+    console.log('Datos de aerolíneas cargados correctamente en Redis Cloud con IDs');
   } catch (err) {
-    console.error('Error cargando datos de fabricantes en Redis Cloud:', err);
+    console.error('Error cargando datos de aerolíneas en Redis Cloud:', err);
   } finally {
     client.quit(); // Cerrar la conexión a Redis
   }
 }
 
 // Ejecutar la función para cargar datos
-cargarFabricantes();
+cargarAerolíneas();

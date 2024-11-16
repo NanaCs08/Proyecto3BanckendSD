@@ -12,9 +12,10 @@ async function cargarAerolíneas() {
   try {
     await client.connect(); // Conectar a Redis
 
-    // Datos de ejemplo para cargar en Redis
+    // Datos de ejemplo para cargar en Redis, con un campo `id` único
     const aerolineas = [
       {
+        id: 1, // ID único
         nombre: "British Airways",
         pais_origen: "Reino Unido",
         flota: 277,
@@ -22,6 +23,7 @@ async function cargarAerolíneas() {
         imagen: "/Imagenes/aerolineas/aerolinea_6.png"
       },
       {
+        id: 2, // ID único
         nombre: "Air France",
         pais_origen: "Francia",
         flota: 212,
@@ -30,12 +32,15 @@ async function cargarAerolíneas() {
       }
     ];
 
+    // Eliminar los datos antiguos antes de insertar los nuevos (opcional)
+    await client.del('airlines');
+
     // Insertar cada aerolínea en la lista `airlines` en Redis
     for (const aerolinea of aerolineas) {
       await client.rPush('airlines', JSON.stringify(aerolinea));
     }
 
-    console.log('Datos de aerolíneas cargados correctamente en Redis Cloud');
+    console.log('Datos de aerolíneas cargados correctamente en Redis Cloud con IDs');
   } catch (err) {
     console.error('Error cargando datos de aerolíneas en Redis Cloud:', err);
   } finally {

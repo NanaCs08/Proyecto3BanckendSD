@@ -12,9 +12,10 @@ async function cargarAviones() {
   try {
     await client.connect(); // Conectar a Redis
 
-    // Datos de ejemplo para cargar en Redis
+    // Datos de ejemplo para cargar en Redis, con un campo `id` único
     const aviones = [
       {
+        id: 1, // ID único
         modelo: "Airbus A320",
         fabricante: "Airbus",
         tipo: "Comercial",
@@ -25,6 +26,7 @@ async function cargarAviones() {
         imagen: "/Imagenes/aviones/avion_4.jpg"
       },
       {
+        id: 2, // ID único
         modelo: "Boeing 747",
         fabricante: "Boeing",
         tipo: "Comercial",
@@ -36,12 +38,15 @@ async function cargarAviones() {
       }
     ];
 
+    // Eliminar los datos antiguos antes de insertar los nuevos (opcional)
+    await client.del('planes');
+
     // Insertar cada avión en la lista `planes` en Redis
     for (const avion of aviones) {
       await client.rPush('planes', JSON.stringify(avion));
     }
 
-    console.log('Datos de aviones cargados correctamente en Redis Cloud');
+    console.log('Datos de aviones cargados correctamente en Redis Cloud con IDs');
   } catch (err) {
     console.error('Error cargando datos de aviones en Redis Cloud:', err);
   } finally {

@@ -55,8 +55,14 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'POST') {
-      // Crear un nuevo fabricante
+      // Crear un nuevo fabricante con un id incremental
       const data = JSON.parse(event.body);
+
+      // Incrementar el id y obtener el nuevo id
+      const newId = await client.incr('last_manufacturer_id');
+      data.id = newId; // Asignar el nuevo id al fabricante
+
+      // Insertar el nuevo fabricante en la lista `manufacturers` en Redis
       await client.rPush('manufacturers', JSON.stringify(data));
 
       // Enviar mensaje a RabbitMQ para operación 'add'
