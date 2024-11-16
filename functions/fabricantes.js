@@ -77,9 +77,9 @@ exports.handler = async function (event, context) {
 
     if (method === 'PUT') {
       // Actualizar un fabricante en Redis
-      const { id, ...updateData } = JSON.parse(event.body);
+      const { nombre, ...updateData } = JSON.parse(event.body);
       const manufacturers = await client.lRange('manufacturers', 0, -1);
-      const index = manufacturers.findIndex((manufacturer) => JSON.parse(manufacturer).id === id);
+      const index = manufacturers.findIndex((manufacturer) => JSON.parse(manufacturer).nombre === nombre);
 
       if (index === -1) {
         return {
@@ -104,9 +104,9 @@ exports.handler = async function (event, context) {
 
     if (method === 'DELETE') {
       // Eliminar un fabricante de Redis
-      const { id } = JSON.parse(event.body);
+      const { nombre } = JSON.parse(event.body);
       const manufacturers = await client.lRange('manufacturers', 0, -1);
-      const index = manufacturers.findIndex((manufacturer) => JSON.parse(manufacturer).id === id);
+      const index = manufacturers.findIndex((manufacturer) => JSON.parse(manufacturer).nombre === nombre);
 
       if (index === -1) {
         return {
@@ -119,7 +119,7 @@ exports.handler = async function (event, context) {
       await client.lRem('manufacturers', 1, manufacturers[index]);
 
       // Enviar mensaje a RabbitMQ para operación 'delete'
-      await sendToQueue({ action: 'delete', entity: 'manufacturer', id });
+      await sendToQueue({ action: 'delete', entity: 'manufacturer', nombre });
 
       return {
         statusCode: 204,

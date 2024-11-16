@@ -55,17 +55,12 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'POST') {
-      // Crear un nuevo avión con el id proporcionado por el usuario
+      // Crear un nuevo avión con un id incremental
       const data = JSON.parse(event.body);
 
-      // Verificar si el id se proporciona
-      if (!data.id) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ message: 'El campo "id" es requerido.' }),
-        };
-      }
+      // Incrementar el id y obtener el nuevo id
+      const newId = await client.incr('last_plane_id');
+      data.id = newId; // Asignar el nuevo id al avión
 
       // Insertar el nuevo avión en la lista `planes` en Redis
       await client.rPush('planes', JSON.stringify(data));
@@ -82,9 +77,9 @@ exports.handler = async function (event, context) {
 
     if (method === 'PUT') {
       // Actualizar un avión en Redis
-      const { id, ...updateData } = JSON.parse(event.body);
+      const { modelo, ...updateData } = JSON.parse(event.body);
       const planes = await client.lRange('planes', 0, -1);
-      const index = planes.findIndex((plane) => JSON.parse(plane).id === id);
+      const index = planes.findIndex((plane) => JSON.parse(plane).modelo === modelo);
 
       if (index === -1) {
         return {
@@ -109,9 +104,9 @@ exports.handler = async function (event, context) {
 
     if (method === 'DELETE') {
       // Eliminar un avión de Redis
-      const { id } = JSON.parse(event.body);
+      const { modelo } = JSON.parse(event.body);
       const planes = await client.lRange('planes', 0, -1);
-      const index = planes.findIndex((plane) => JSON.parse(plane).id === id);
+      const index = planes.findIndex((plane) => JSON.parse(plane).modelo === modelo);
 
       if (index === -1) {
         return {
@@ -124,7 +119,7 @@ exports.handler = async function (event, context) {
       await client.lRem('planes', 1, planes[index]);
 
       // Enviar mensaje a RabbitMQ para operación 'delete'
-      await sendToQueue({ action: 'delete', entity: 'plane', id });
+      await sendToQueue({ action: 'delete', entity: 'plane', modelo });
 
       return {
         statusCode: 204,
