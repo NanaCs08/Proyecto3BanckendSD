@@ -55,12 +55,17 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'POST') {
-      // Crear una nueva aerolínea con un id incremental
+      // Crear una nueva aerolínea con los datos proporcionados, incluyendo el id
       const data = JSON.parse(event.body);
 
-      // Incrementar el id y obtener el nuevo id
-      const newId = await client.incr('last_airline_id');
-      data.id = newId; // Asignar el nuevo id a la aerolínea
+      // Asegúrate de que el id se proporcione en el cuerpo de la solicitud
+      if (!data.id) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'El campo "id" es requerido.' }),
+        };
+      }
 
       // Insertar la nueva aerolínea en la lista `airlines` en Redis
       await client.rPush('airlines', JSON.stringify(data));
@@ -77,9 +82,9 @@ exports.handler = async function (event, context) {
 
     if (method === 'PUT') {
       // Actualizar una aerolínea en Redis
-      const { nombre, ...updateData } = JSON.parse(event.body);
+      const { id, ...updateData } = JSON.parse(event.body);
       const airlines = await client.lRange('airlines', 0, -1);
-      const index = airlines.findIndex((airline) => JSON.parse(airline).nombre === nombre);
+      const index = airlines.findIndex((airline) => JSON.parse(airline).id === id);
 
       if (index === -1) {
         return {
@@ -104,9 +109,9 @@ exports.handler = async function (event, context) {
 
     if (method === 'DELETE') {
       // Eliminar una aerolínea de Redis
-      const { nombre } = JSON.parse(event.body);
+      const { id } = JSON.parse(event.body);
       const airlines = await client.lRange('airlines', 0, -1);
-      const index = airlines.findIndex((airline) => JSON.parse(airline).nombre === nombre);
+      const index = airlines.findIndex((airline) => JSON.parse(airline).id === id);
 
       if (index === -1) {
         return {
@@ -119,7 +124,7 @@ exports.handler = async function (event, context) {
       await client.lRem('airlines', 1, airlines[index]);
 
       // Enviar mensaje a RabbitMQ para operación 'delete'
-      await sendToQueue({ action: 'delete', entity: 'airline', nombre });
+      await sendToQueue({ action: 'delete', entity: 'airline', id });
 
       return {
         statusCode: 204,
