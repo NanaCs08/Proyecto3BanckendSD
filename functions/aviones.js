@@ -1,12 +1,14 @@
-const mongoose = require('mongoose');
+const redis = require('redis');
 const amqp = require('amqplib'); // Para conectar a RabbitMQ
-const Author = require('../models/Author'); // Asegúrate de tener un modelo adecuado para Author
 require('dotenv').config();
 
-// Conectar a MongoDB (solo se conecta si aún no está conectado)
-if (mongoose.connection.readyState === 0) {
-    mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-}
+// Crear un cliente Redis usando la URL del archivo .env
+const client = redis.createClient({
+  url: process.env.REDIS_URL,
+});
+
+client.on('error', (err) => console.error('Error conectando a Redis', err));
+client.connect(); // Conectar a Redis
 
 // Función para conectar y enviar mensajes a RabbitMQ
 async function sendToQueue(message) {
@@ -24,7 +26,7 @@ async function sendToQueue(message) {
   }
 }
 
-exports.handler = async function(event, context) {
+exports.handler = async function (event, context) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -43,71 +45,80 @@ exports.handler = async function(event, context) {
     const method = event.httpMethod;
 
     if (method === 'GET') {
-      // Obtener todos los autores
-      const authors = await Author.find();
+      // Obtener todos los aviones desde Redis
+      const planes = await client.lRange('planes', 0, -1);
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify(authors),
+        body: JSON.stringify(planes.map(JSON.parse)),
       };
     }
 
     if (method === 'POST') {
-      // Crear un nuevo autor
+      // Crear un nuevo avión
       const data = JSON.parse(event.body);
-      const newAuthor = new Author(data);
-      const savedAuthor = await newAuthor.save();
-      
+      await client.rPush('planes', JSON.stringify(data));
+
       // Enviar mensaje a RabbitMQ para operación 'add'
-      await sendToQueue({ action: 'add', entity: 'author', data: savedAuthor });
-      
+      await sendToQueue({ action: 'add', entity: 'plane', data });
+
       return {
         statusCode: 201,
         headers,
-        body: JSON.stringify(savedAuthor),
+        body: JSON.stringify(data),
       };
     }
 
     if (method === 'PUT') {
-      const { id, ...updateData } = JSON.parse(event.body);
-      const updatedAuthor = await Author.findByIdAndUpdate(id, updateData, { new: true });
-      if (!updatedAuthor) {
+      // Actualizar un avión en Redis
+      const { modelo, ...updateData } = JSON.parse(event.body);
+      const planes = await client.lRange('planes', 0, -1);
+      const index = planes.findIndex((plane) => JSON.parse(plane).modelo === modelo);
+
+      if (index === -1) {
         return {
           statusCode: 404,
           headers,
-          body: JSON.stringify({ message: 'Autor no encontrado' }),
+          body: JSON.stringify({ message: 'Avión no encontrado' }),
         };
       }
-      
+
+      const updatedPlane = { ...JSON.parse(planes[index]), ...updateData };
+      await client.lSet('planes', index, JSON.stringify(updatedPlane));
+
       // Enviar mensaje a RabbitMQ para operación 'update'
-      await sendToQueue({ action: 'update', entity: 'author', data: updatedAuthor });
-      
+      await sendToQueue({ action: 'update', entity: 'plane', data: updatedPlane });
+
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify(updatedAuthor),
+        body: JSON.stringify(updatedPlane),
       };
     }
 
     if (method === 'DELETE') {
-      // Eliminar un autor
-      const { id } = JSON.parse(event.body);
-      const deletedAuthor = await Author.findByIdAndDelete(id);
-      if (!deletedAuthor) {
+      // Eliminar un avión de Redis
+      const { modelo } = JSON.parse(event.body);
+      const planes = await client.lRange('planes', 0, -1);
+      const index = planes.findIndex((plane) => JSON.parse(plane).modelo === modelo);
+
+      if (index === -1) {
         return {
           statusCode: 404,
           headers,
-          body: JSON.stringify({ message: 'Autor no encontrado' }),
+          body: JSON.stringify({ message: 'Avión no encontrado' }),
         };
       }
-      
+
+      await client.lRem('planes', 1, planes[index]);
+
       // Enviar mensaje a RabbitMQ para operación 'delete'
-      await sendToQueue({ action: 'delete', entity: 'author', id });
-      
+      await sendToQueue({ action: 'delete', entity: 'plane', modelo });
+
       return {
         statusCode: 204,
         headers,
-        body: JSON.stringify({ message: 'Autor eliminado exitosamente' }),
+        body: JSON.stringify({ message: 'Avión eliminado exitosamente' }),
       };
     }
 
