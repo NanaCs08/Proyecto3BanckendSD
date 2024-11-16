@@ -9,10 +9,10 @@ const client = redis.createClient({
 
 client.on('error', (err) => console.error('Error conectando a Redis', err));
 client.connect().then(async () => {
-  // Inicializar `last_plane_id` solo si no ha sido configurado
+  // Verificar si `last_plane_id` ya está configurado; si no, establecerlo en 2
   const currentId = await client.get('last_plane_id');
-  if (!currentId) {
-    await client.set('last_plane_id', 2); // Configurar el valor inicial a 2
+  if (currentId === null) {
+    await client.set('last_plane_id', 2); // Configura el valor inicial a 2
   }
 });
 
