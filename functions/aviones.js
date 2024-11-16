@@ -8,7 +8,13 @@ const client = redis.createClient({
 });
 
 client.on('error', (err) => console.error('Error conectando a Redis', err));
-client.connect(); // Conectar a Redis
+client.connect().then(async () => {
+  // Inicializar `last_plane_id` solo si no ha sido configurado
+  const currentId = await client.get('last_plane_id');
+  if (!currentId) {
+    await client.set('last_plane_id', 2); // Configurar el valor inicial a 2
+  }
+});
 
 // Función para conectar y enviar mensajes a RabbitMQ
 async function sendToQueue(message) {
