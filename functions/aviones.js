@@ -52,8 +52,6 @@ exports.handler = async function (event, context) {
 
     if (method === 'GET') {
       const planes = await client.lRange('planes', 0, -1);
-
-      // Check if there is an 'id' query parameter
       const { id } = event.queryStringParameters || {};
       if (id) {
         const plane = planes.map(JSON.parse).find((plane) => plane.id === parseInt(id));
@@ -70,8 +68,6 @@ exports.handler = async function (event, context) {
           body: JSON.stringify(plane),
         };
       }
-
-      // If no 'id' is provided, return all planes
       return {
         statusCode: 200,
         headers,
@@ -118,9 +114,9 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'DELETE') {
-      const { modelo } = JSON.parse(event.body);
+      const id = parseInt(event.pathParameters.id, 10); // Parse the `id` from the path
       const planes = await client.lRange('planes', 0, -1);
-      const index = planes.findIndex((plane) => JSON.parse(plane).modelo === modelo);
+      const index = planes.findIndex((plane) => JSON.parse(plane).id === id);
 
       if (index === -1) {
         return {
@@ -131,7 +127,7 @@ exports.handler = async function (event, context) {
       }
 
       await client.lRem('planes', 1, planes[index]);
-      await sendToQueue({ action: 'delete', entity: 'plane', modelo });
+      await sendToQueue({ action: 'delete', entity: 'plane', id });
 
       return {
         statusCode: 204,
