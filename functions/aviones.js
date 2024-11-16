@@ -51,8 +51,27 @@ exports.handler = async function (event, context) {
     const method = event.httpMethod;
 
     if (method === 'GET') {
-      // Obtener todos los aviones desde Redis
       const planes = await client.lRange('planes', 0, -1);
+
+      // Check if there is an 'id' query parameter
+      const { id } = event.queryStringParameters || {};
+      if (id) {
+        const plane = planes.map(JSON.parse).find((plane) => plane.id === parseInt(id));
+        if (!plane) {
+          return {
+            statusCode: 404,
+            headers,
+            body: JSON.stringify({ message: 'Plane not found' }),
+          };
+        }
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify(plane),
+        };
+      }
+
+      // If no 'id' is provided, return all planes
       return {
         statusCode: 200,
         headers,
@@ -61,17 +80,10 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'POST') {
-      // Crear un nuevo avión con un id incremental
       const data = JSON.parse(event.body);
-
-      // Incrementar el id y obtener el nuevo id
       const newId = await client.incr('last_plane_id');
-      data.id = newId; // Asignar el nuevo id al avión
-
-      // Insertar el nuevo avión en la lista `planes` en Redis
+      data.id = newId;
       await client.rPush('planes', JSON.stringify(data));
-
-      // Enviar mensaje a RabbitMQ para operación 'add'
       await sendToQueue({ action: 'add', entity: 'plane', data });
 
       return {
@@ -82,7 +94,6 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'PUT') {
-      // Actualizar un avión en Redis
       const { modelo, ...updateData } = JSON.parse(event.body);
       const planes = await client.lRange('planes', 0, -1);
       const index = planes.findIndex((plane) => JSON.parse(plane).modelo === modelo);
@@ -91,14 +102,12 @@ exports.handler = async function (event, context) {
         return {
           statusCode: 404,
           headers,
-          body: JSON.stringify({ message: 'Avión no encontrado' }),
+          body: JSON.stringify({ message: 'Plane not found' }),
         };
       }
 
       const updatedPlane = { ...JSON.parse(planes[index]), ...updateData };
       await client.lSet('planes', index, JSON.stringify(updatedPlane));
-
-      // Enviar mensaje a RabbitMQ para operación 'update'
       await sendToQueue({ action: 'update', entity: 'plane', data: updatedPlane });
 
       return {
@@ -109,7 +118,6 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'DELETE') {
-      // Eliminar un avión de Redis
       const { modelo } = JSON.parse(event.body);
       const planes = await client.lRange('planes', 0, -1);
       const index = planes.findIndex((plane) => JSON.parse(plane).modelo === modelo);
@@ -118,26 +126,24 @@ exports.handler = async function (event, context) {
         return {
           statusCode: 404,
           headers,
-          body: JSON.stringify({ message: 'Avión no encontrado' }),
+          body: JSON.stringify({ message: 'Plane not found' }),
         };
       }
 
       await client.lRem('planes', 1, planes[index]);
-
-      // Enviar mensaje a RabbitMQ para operación 'delete'
       await sendToQueue({ action: 'delete', entity: 'plane', modelo });
 
       return {
         statusCode: 204,
         headers,
-        body: JSON.stringify({ message: 'Avión eliminado exitosamente' }),
+        body: JSON.stringify({ message: 'Plane deleted successfully' }),
       };
     }
 
     return {
       statusCode: 405,
       headers,
-      body: JSON.stringify({ message: 'Método no permitido' }),
+      body: JSON.stringify({ message: 'Method not allowed' }),
     };
   } catch (error) {
     return {
