@@ -8,7 +8,14 @@ const client = redis.createClient({
 });
 
 client.on('error', (err) => console.error('Error connecting to Redis', err));
-client.connect(); // Connect to Redis
+
+// Connect to Redis and initialize `last_airline_id`
+client.connect().then(async () => {
+  const currentId = await client.get('last_airline_id');
+  if (currentId === null) {
+    await client.set('last_airline_id', 3); // Initialize to 3 if not set
+  }
+});
 
 // Function to connect and send messages to RabbitMQ
 async function sendToQueue(message) {
@@ -57,9 +64,7 @@ exports.handler = async function (event, context) {
     if (method === 'POST') {
       // Create a new airline with an incremental ID
       const data = JSON.parse(event.body);
-
-      // Increment the ID and assign the new ID to the airline
-      const newId = await client.incr('last_airline_id');
+      const newId = await client.incr('last_airline_id'); // Increment the ID
       data.id = newId;
 
       // Insert the new airline into the `airlines` list in Redis
