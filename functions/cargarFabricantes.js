@@ -39,6 +39,42 @@ async function loadManufacturers() {
           "Boeing 787"
         ],
         imagen: "/Imagenes/fabricantes/fabricante_2.jpg"
+      },
+      {
+        id: 3, // Unique ID
+        nombre: "Bombardier",
+        pais_origen: "Canadá",
+        año_fundacion: 1942,
+        modelos_fabricados: ["Bombardier CRJ900"],
+        imagen: "/Imagenes/fabricantes/fabricante_5.jpg"
+      },
+      {
+        id: 4, // Unique ID
+        nombre: "Embraer",
+        pais_origen: "Brasil",
+        año_fundacion: 1969,
+        modelos_fabricados: ["Embraer E190", "Embraer E175"],
+        imagen: "/Imagenes/fabricantes/fabricante_3.jpg"
+      },
+      {
+        id: 5, // Unique ID
+        nombre: "Lockheed",
+        pais_origen: "Estados Unidos",
+        año_fundacion: 1912,
+        modelos_fabricados: [
+          "Lockheed L-1011 TriStar",
+          "Lockheed C-130 Hercules",
+          "Lockheed F-22 Raptor"
+        ],
+        imagen: "/Imagenes/fabricantes/fabricante_6.jpg"
+      },
+      {
+        id: 6, // Unique ID
+        nombre: "McDonnell Douglas",
+        pais_origen: "Estados Unidos",
+        año_fundacion: 1967,
+        modelos_fabricados: ["McDonnell Douglas MD-80"],
+        imagen: "/Imagenes/fabricantes/fabricante_2.jpg"
       }
     ];
 

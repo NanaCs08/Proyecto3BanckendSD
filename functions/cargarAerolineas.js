@@ -29,6 +29,46 @@ async function cargarAerolíneas() {
         flota: 212,
         modelos_operados: ["Airbus A380", "Boeing 777", "Airbus A320"],
         imagen: "/Imagenes/aerolineas/aerolinea_7.png"
+      },
+      {
+        id: 3,
+        nombre: "American Airlines",
+        pais_origen: "Estados Unidos",
+        flota: 945,
+        modelos_operados: ["Boeing 737", "Airbus A320", "Boeing 787 Dreamliner"],
+        imagen: "/Imagenes/aerolineas/aerolinea_1.png"
+      },
+      {
+        id: 4,
+        nombre: "Delta Air Lines",
+        pais_origen: "Estados Unidos",
+        flota: 865,
+        modelos_operados: ["Boeing 737", "Airbus A320", "McDonnell Douglas MD-80"],
+        imagen: "/Imagenes/aerolineas/aerolinea_4.png"
+      },
+      {
+        id: 5,
+        nombre: "Emirates",
+        pais_origen: "Emiratos",
+        flota: 260,
+        modelos_operados: ["Airbus A380", "Boeing 777", "Boeing 787 Dreamliner"],
+        imagen: "/Imagenes/aerolineas/aerolinea_3.PNG"
+      },
+      {
+        id: 6,
+        nombre: "Lufthansa",
+        pais_origen: "Alemania",
+        flota: 266,
+        modelos_operados: ["Boeing 747", "Airbus A320", "Airbus A380"],
+        imagen: "/Imagenes/aerolineas/aerolinea_2.png"
+      },
+      {
+        id: 7,
+        nombre: "Qatar Airways",
+        pais_origen: "Catar",
+        flota: 235,
+        modelos_operados: ["Boeing 777", "Airbus A350", "Airbus A380"],
+        imagen: "/Imagenes/aerolineas/aerolinea_5.png"
       }
     ];
 
