@@ -114,10 +114,18 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'DELETE') {
-      const id = parseInt(event.pathParameters.id, 10); // Parse the `id` from the path
+      const { id } = event.queryStringParameters || {}; // Get `id` from query string parameters
+      if (!id) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'ID is required for deletion' }),
+        };
+      }
+    
       const planes = await client.lRange('planes', 0, -1);
-      const index = planes.findIndex((plane) => JSON.parse(plane).id === id);
-
+      const index = planes.findIndex((plane) => JSON.parse(plane).id === parseInt(id, 10));
+    
       if (index === -1) {
         return {
           statusCode: 404,
@@ -125,17 +133,17 @@ exports.handler = async function (event, context) {
           body: JSON.stringify({ message: 'Plane not found' }),
         };
       }
-
+    
       await client.lRem('planes', 1, planes[index]);
       await sendToQueue({ action: 'delete', entity: 'plane', id });
-
+    
       return {
         statusCode: 204,
         headers,
         body: JSON.stringify({ message: 'Plane deleted successfully' }),
       };
     }
-
+    
     return {
       statusCode: 405,
       headers,
