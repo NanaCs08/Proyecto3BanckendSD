@@ -103,11 +103,19 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'DELETE') {
-      // Eliminar un fabricante de Redis
-      const { nombre } = JSON.parse(event.body);
+      // Obtener `id` de los parámetros de consulta
+      const { id } = event.queryStringParameters || {};
+      if (!id) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'ID is required for deletion' }),
+        };
+      }
+    
       const manufacturers = await client.lRange('manufacturers', 0, -1);
-      const index = manufacturers.findIndex((manufacturer) => JSON.parse(manufacturer).nombre === nombre);
-
+      const index = manufacturers.findIndex((manufacturer) => JSON.parse(manufacturer).id === parseInt(id, 10));
+    
       if (index === -1) {
         return {
           statusCode: 404,
@@ -115,18 +123,20 @@ exports.handler = async function (event, context) {
           body: JSON.stringify({ message: 'Fabricante no encontrado' }),
         };
       }
-
+    
+      // Eliminar el fabricante de la lista `manufacturers` en Redis
       await client.lRem('manufacturers', 1, manufacturers[index]);
-
+    
       // Enviar mensaje a RabbitMQ para operación 'delete'
-      await sendToQueue({ action: 'delete', entity: 'manufacturer', nombre });
-
+      await sendToQueue({ action: 'delete', entity: 'manufacturer', id });
+    
       return {
         statusCode: 204,
         headers,
         body: JSON.stringify({ message: 'Fabricante eliminado exitosamente' }),
       };
     }
+    
 
     return {
       statusCode: 405,

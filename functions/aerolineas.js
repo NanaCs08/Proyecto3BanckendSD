@@ -103,11 +103,19 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'DELETE') {
-      // Eliminar una aerolínea de Redis
-      const { nombre } = JSON.parse(event.body);
+      // Obtener `id` de los parámetros de consulta
+      const { id } = event.queryStringParameters || {};
+      if (!id) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'ID is required for deletion' }),
+        };
+      }
+    
       const airlines = await client.lRange('airlines', 0, -1);
-      const index = airlines.findIndex((airline) => JSON.parse(airline).nombre === nombre);
-
+      const index = airlines.findIndex((airline) => JSON.parse(airline).id === parseInt(id, 10));
+    
       if (index === -1) {
         return {
           statusCode: 404,
@@ -115,19 +123,20 @@ exports.handler = async function (event, context) {
           body: JSON.stringify({ message: 'Aerolínea no encontrada' }),
         };
       }
-
+    
+      // Eliminar la aerolínea de la lista `airlines` en Redis
       await client.lRem('airlines', 1, airlines[index]);
-
+    
       // Enviar mensaje a RabbitMQ para operación 'delete'
-      await sendToQueue({ action: 'delete', entity: 'airline', nombre });
-
+      await sendToQueue({ action: 'delete', entity: 'airline', id });
+    
       return {
         statusCode: 204,
         headers,
         body: JSON.stringify({ message: 'Aerolínea eliminada exitosamente' }),
       };
     }
-
+    
     return {
       statusCode: 405,
       headers,
