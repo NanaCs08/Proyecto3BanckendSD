@@ -1,16 +1,16 @@
 const redis = require('redis');
-const amqp = require('amqplib'); // Para conectar a RabbitMQ
+const amqp = require('amqplib'); // To connect to RabbitMQ
 require('dotenv').config();
 
-// Crear un cliente Redis usando la URL del archivo .env
+// Create a Redis client using the URL from the .env file
 const client = redis.createClient({
   url: process.env.REDIS_URL,
 });
 
-client.on('error', (err) => console.error('Error conectando a Redis', err));
-client.connect(); // Conectar a Redis
+client.on('error', (err) => console.error('Error connecting to Redis', err));
+client.connect(); // Connect to Redis
 
-// Función para conectar y enviar mensajes a RabbitMQ
+// Function to connect and send messages to RabbitMQ
 async function sendToQueue(message) {
   try {
     const connection = await amqp.connect(process.env.CLOUDAMQP_URL);
@@ -22,7 +22,7 @@ async function sendToQueue(message) {
     await channel.close();
     await connection.close();
   } catch (err) {
-    console.error('Error enviando mensaje a RabbitMQ', err);
+    console.error('Error sending message to RabbitMQ', err);
   }
 }
 
@@ -45,7 +45,7 @@ exports.handler = async function (event, context) {
     const method = event.httpMethod;
 
     if (method === 'GET') {
-      // Obtener todas las aerolíneas desde Redis
+      // Get all airlines from Redis
       const airlines = await client.lRange('airlines', 0, -1);
       return {
         statusCode: 200,
@@ -55,17 +55,17 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'POST') {
-      // Crear una nueva aerolínea con un id incremental
+      // Create a new airline with an incremental ID
       const data = JSON.parse(event.body);
 
-      // Incrementar el id y obtener el nuevo id
+      // Increment the ID and assign the new ID to the airline
       const newId = await client.incr('last_airline_id');
-      data.id = newId; // Asignar el nuevo id a la aerolínea
+      data.id = newId;
 
-      // Insertar la nueva aerolínea en la lista `airlines` en Redis
+      // Insert the new airline into the `airlines` list in Redis
       await client.rPush('airlines', JSON.stringify(data));
 
-      // Enviar mensaje a RabbitMQ para operación 'add'
+      // Send a message to RabbitMQ for the 'add' operation
       await sendToQueue({ action: 'add', entity: 'airline', data });
 
       return {
@@ -76,7 +76,7 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'PUT') {
-      // Actualizar una aerolínea en Redis
+      // Update an airline in Redis
       const { nombre, ...updateData } = JSON.parse(event.body);
       const airlines = await client.lRange('airlines', 0, -1);
       const index = airlines.findIndex((airline) => JSON.parse(airline).nombre === nombre);
@@ -92,7 +92,7 @@ exports.handler = async function (event, context) {
       const updatedAirline = { ...JSON.parse(airlines[index]), ...updateData };
       await client.lSet('airlines', index, JSON.stringify(updatedAirline));
 
-      // Enviar mensaje a RabbitMQ para operación 'update'
+      // Send a message to RabbitMQ for the 'update' operation
       await sendToQueue({ action: 'update', entity: 'airline', data: updatedAirline });
 
       return {
@@ -103,7 +103,7 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'DELETE') {
-      // Obtener `id` de los parámetros de consulta
+      // Get `id` from the query string parameters
       const { id } = event.queryStringParameters || {};
       if (!id) {
         return {
@@ -112,10 +112,10 @@ exports.handler = async function (event, context) {
           body: JSON.stringify({ message: 'ID is required for deletion' }),
         };
       }
-    
+
       const airlines = await client.lRange('airlines', 0, -1);
       const index = airlines.findIndex((airline) => JSON.parse(airline).id === parseInt(id, 10));
-    
+
       if (index === -1) {
         return {
           statusCode: 404,
@@ -123,20 +123,20 @@ exports.handler = async function (event, context) {
           body: JSON.stringify({ message: 'Aerolínea no encontrada' }),
         };
       }
-    
-      // Eliminar la aerolínea de la lista `airlines` en Redis
+
+      // Remove the airline from the `airlines` list in Redis
       await client.lRem('airlines', 1, airlines[index]);
-    
-      // Enviar mensaje a RabbitMQ para operación 'delete'
+
+      // Send a message to RabbitMQ for the 'delete' operation
       await sendToQueue({ action: 'delete', entity: 'airline', id });
-    
+
       return {
         statusCode: 204,
         headers,
         body: JSON.stringify({ message: 'Aerolínea eliminada exitosamente' }),
       };
     }
-    
+
     return {
       statusCode: 405,
       headers,

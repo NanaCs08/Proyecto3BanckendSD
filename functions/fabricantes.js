@@ -1,16 +1,22 @@
 const redis = require('redis');
-const amqp = require('amqplib'); // Para conectar a RabbitMQ
+const amqp = require('amqplib');
 require('dotenv').config();
 
-// Crear un cliente Redis usando la URL del archivo .env
+// Create a Redis client using the URL from the .env file
 const client = redis.createClient({
   url: process.env.REDIS_URL,
 });
 
-client.on('error', (err) => console.error('Error conectando a Redis', err));
-client.connect(); // Conectar a Redis
+client.on('error', (err) => console.error('Error connecting to Redis', err));
+client.connect().then(async () => {
+  // Check if `last_manufacturer_id` is set; if not, initialize it to 2
+  const currentId = await client.get('last_manufacturer_id');
+  if (currentId === null) {
+    await client.set('last_manufacturer_id', 2);
+  }
+});
 
-// Función para conectar y enviar mensajes a RabbitMQ
+// Function to send messages to RabbitMQ
 async function sendToQueue(message) {
   try {
     const connection = await amqp.connect(process.env.CLOUDAMQP_URL);
@@ -22,7 +28,7 @@ async function sendToQueue(message) {
     await channel.close();
     await connection.close();
   } catch (err) {
-    console.error('Error enviando mensaje a RabbitMQ', err);
+    console.error('Error sending message to RabbitMQ', err);
   }
 }
 
@@ -45,8 +51,23 @@ exports.handler = async function (event, context) {
     const method = event.httpMethod;
 
     if (method === 'GET') {
-      // Obtener todos los fabricantes desde Redis
       const manufacturers = await client.lRange('manufacturers', 0, -1);
+      const { id } = event.queryStringParameters || {};
+      if (id) {
+        const manufacturer = manufacturers.map(JSON.parse).find((m) => m.id === parseInt(id));
+        if (!manufacturer) {
+          return {
+            statusCode: 404,
+            headers,
+            body: JSON.stringify({ message: 'Manufacturer not found' }),
+          };
+        }
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify(manufacturer),
+        };
+      }
       return {
         statusCode: 200,
         headers,
@@ -55,17 +76,10 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'POST') {
-      // Crear un nuevo fabricante con un id incremental
       const data = JSON.parse(event.body);
-
-      // Incrementar el id y obtener el nuevo id
       const newId = await client.incr('last_manufacturer_id');
-      data.id = newId; // Asignar el nuevo id al fabricante
-
-      // Insertar el nuevo fabricante en la lista `manufacturers` en Redis
+      data.id = newId;
       await client.rPush('manufacturers', JSON.stringify(data));
-
-      // Enviar mensaje a RabbitMQ para operación 'add'
       await sendToQueue({ action: 'add', entity: 'manufacturer', data });
 
       return {
@@ -76,23 +90,20 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'PUT') {
-      // Actualizar un fabricante en Redis
       const { nombre, ...updateData } = JSON.parse(event.body);
       const manufacturers = await client.lRange('manufacturers', 0, -1);
-      const index = manufacturers.findIndex((manufacturer) => JSON.parse(manufacturer).nombre === nombre);
+      const index = manufacturers.findIndex((m) => JSON.parse(m).nombre === nombre);
 
       if (index === -1) {
         return {
           statusCode: 404,
           headers,
-          body: JSON.stringify({ message: 'Fabricante no encontrado' }),
+          body: JSON.stringify({ message: 'Manufacturer not found' }),
         };
       }
 
       const updatedManufacturer = { ...JSON.parse(manufacturers[index]), ...updateData };
       await client.lSet('manufacturers', index, JSON.stringify(updatedManufacturer));
-
-      // Enviar mensaje a RabbitMQ para operación 'update'
       await sendToQueue({ action: 'update', entity: 'manufacturer', data: updatedManufacturer });
 
       return {
@@ -103,7 +114,6 @@ exports.handler = async function (event, context) {
     }
 
     if (method === 'DELETE') {
-      // Obtener `id` de los parámetros de consulta
       const { id } = event.queryStringParameters || {};
       if (!id) {
         return {
@@ -112,36 +122,32 @@ exports.handler = async function (event, context) {
           body: JSON.stringify({ message: 'ID is required for deletion' }),
         };
       }
-    
+
       const manufacturers = await client.lRange('manufacturers', 0, -1);
-      const index = manufacturers.findIndex((manufacturer) => JSON.parse(manufacturer).id === parseInt(id, 10));
-    
+      const index = manufacturers.findIndex((m) => JSON.parse(m).id === parseInt(id, 10));
+
       if (index === -1) {
         return {
           statusCode: 404,
           headers,
-          body: JSON.stringify({ message: 'Fabricante no encontrado' }),
+          body: JSON.stringify({ message: 'Manufacturer not found' }),
         };
       }
-    
-      // Eliminar el fabricante de la lista `manufacturers` en Redis
+
       await client.lRem('manufacturers', 1, manufacturers[index]);
-    
-      // Enviar mensaje a RabbitMQ para operación 'delete'
       await sendToQueue({ action: 'delete', entity: 'manufacturer', id });
-    
+
       return {
         statusCode: 204,
         headers,
-        body: JSON.stringify({ message: 'Fabricante eliminado exitosamente' }),
+        body: JSON.stringify({ message: 'Manufacturer deleted successfully' }),
       };
     }
-    
 
     return {
       statusCode: 405,
       headers,
-      body: JSON.stringify({ message: 'Método no permitido' }),
+      body: JSON.stringify({ message: 'Method not allowed' }),
     };
   } catch (error) {
     return {
